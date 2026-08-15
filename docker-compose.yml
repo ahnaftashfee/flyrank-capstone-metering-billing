@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: billing
+      POSTGRES_USER: billing_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-this-local-password}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U billing_app -d billing"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://billing_app:${POSTGRES_PASSWORD:-change-this-local-password}@db:5432/billing
+      TENANT_API_KEY_PEPPER: ${TENANT_API_KEY_PEPPER:-local-development-pepper}
+      DEMO_TENANT_API_KEY: ${DEMO_TENANT_API_KEY:-demo-tenant-key-change-me}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-demo-admin-key-change-me}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRO_PRICE_ID: ${STRIPE_PRO_PRICE_ID:-}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8000}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "8000:8000"
+
+volumes:
+  postgres_data:
